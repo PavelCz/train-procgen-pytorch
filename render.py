@@ -338,7 +338,7 @@ if __name__=='__main__':
                 acts_list.append(agent.storage.act_batch.numpy()[:, env])
                 # I don't bother to save the actual infos because I don't need them, and
                 # they are formatted weirdly.
-                infos_list.append(np.full(len(agent.storage.acts_list), {}))
+                infos_list.append(np.full(len(agent.storage.act_batch), {}))
                 rew_list.append(agent.storage.rew_batch.numpy()[:, env])
                 dones_list.append(agent.storage.done_batch.numpy()[:, env])
 
