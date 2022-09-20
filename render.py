@@ -1,5 +1,3 @@
-from typing import Optional
-
 from common.env.procgen_wrappers import *
 from common.logger import Logger
 from common.storage import Storage
@@ -33,8 +31,6 @@ if __name__=='__main__':
     parser.add_argument('--log_level',        type=int, default = int(40), help='[10,20,30,40]')
     parser.add_argument('--num_checkpoints',  type=int, default = int(1), help='number of checkpoints to store')
     parser.add_argument('--logdir',           type=str, default = None)
-    parser.add_argument('--num_episodes',     type=int, default = int(1000),
-                        help='number of episodes to render / save')
 
     #multi threading
     parser.add_argument('--num_threads', type=int, default=8)
@@ -47,8 +43,7 @@ if __name__=='__main__':
     parser.add_argument('--save_value_individual', action='store_true')
     parser.add_argument('--value_saliency', action='store_true')
 
-    # Saving trajectories (compatible with HumanCompatibleAI/imitation)
-    parser.add_argument('--traj_path', type=str, default=None)
+
 
     parser.add_argument('--random_percent',   type=float, default=0., help='percent of environments in which coin is randomized (only for coinrun)')
     parser.add_argument('--corruption_type',  type=str, default = None)
@@ -242,24 +237,12 @@ if __name__=='__main__':
     hidden_state = np.zeros((agent.n_envs, agent.storage.hidden_state_size))
     done = np.zeros(agent.n_envs)
 
-    # The number of iterations depends on the number of episodes we want and the number
-    # of parallel environments we are using
-    num_iterations = args.num_episodes // agent.n_envs
-    if args.num_episodes % agent.n_envs != 0:
-        num_iterations += 1  # We want *at least* num_episodes
-
-    # For saving trajectories / transitions
-    obs_list = []
-    acts_list = []
-    infos_list = []
-    rew_list = []
-    dones_list = []
 
     individual_value_idx = 1001
     save_frequency = 1
     saliency_save_idx = 0
     epoch_idx = 0
-    for iteration in range(num_iterations):
+    while True:
         agent.policy.eval()
         for _ in range(agent.n_steps):  # = 256
             if not args.value_saliency:
@@ -330,36 +313,7 @@ if __name__=='__main__':
 
         if args.save_value:
             save_value_estimates(agent.storage, epoch_idx)
-
-        if args.traj_path is not None:
-            for env in agent.storage.num_envs:
-                # Flatten batches as they contain infos for each env
-                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :])
-                acts_list.append(agent.storage.act_batch.numpy()[:, env])
-                # I don't bother to save the actual infos because I don't need them, and
-                # they are formatted weirdly.
-                infos_list.append({})
-                rew_list.append(agent.storage.rew_batch.numpy()[:, env])
-                dones_list.append(agent.storage.done_batch.numpy()[:, env])
-
-        epoch_idx += 1
+            epoch_idx += 1
 
         agent.storage.compute_estimates(agent.gamma, agent.lmbda, agent.use_gae,
                                        agent.normalize_adv)
-
-    if args.traj_path is not None:
-        # Save trajectories to disk
-        condensed = {
-            "obs": np.concatenate(obs_list),
-            "acts": np.concatenate(acts_list),
-            "infos": np.concatenate(infos_list),
-            "terminal": np.array(dones_list),
-            "rews": np.concatenate(rew_list),
-            "indices": np.cumsum([len(x) for x in dones_list[:-1]]),
-        }
-        tmp_path = args.traj_path + ".tmp"
-        with open(tmp_path, "wb") as f:
-            np.savez_compressed(f, **condensed)
-
-        os.replace(tmp_path, args.traj_path)
-        print(f"Saved trajectories to {args.traj_path}.")
