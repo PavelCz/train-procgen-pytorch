@@ -353,7 +353,7 @@ if __name__=='__main__':
             "obs": np.concatenate(obs_list),
             "acts": np.concatenate(acts_list),
             "infos": np.concatenate(infos_list),
-            "terminal": np.array(dones_list),
+            "terminal": np.array([done_batch[-1] for done_batch in dones_list]),
             "rews": np.concatenate(rew_list),
             "indices": np.cumsum([len(x) for x in dones_list[:-1]]),
         }
