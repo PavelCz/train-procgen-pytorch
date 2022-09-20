@@ -332,10 +332,14 @@ if __name__=='__main__':
             save_value_estimates(agent.storage, epoch_idx)
 
         if args.traj_path is not None:
+            # Flatten batches as they contain infos for each env
             for env in range(agent.storage.num_envs):
-                # Flatten batches as they contain infos for each env
-                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :].permute(
-                    0, 2, 1, 3))
+                print(agent.storage.obs_batch.numpy()[:, env, :].shape)
+                print(agent.storage.obs_batch.numpy()[:, env, :].transpose(0, 2, 3, 1).
+                      shape)
+                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :].transpose(
+                    0, 2, 3, 1))
+
                 acts_list.append(agent.storage.act_batch.numpy()[:, env])
                 # I don't bother to save the actual infos because I don't need them, and
                 # they are formatted weirdly.
@@ -346,7 +350,7 @@ if __name__=='__main__':
         epoch_idx += 1
 
         agent.storage.compute_estimates(agent.gamma, agent.lmbda, agent.use_gae,
-                                       agent.normalize_adv)
+                                        agent.normalize_adv)
 
     if args.traj_path is not None:
         # Save trajectories to disk
