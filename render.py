@@ -334,7 +334,8 @@ if __name__=='__main__':
         if args.traj_path is not None:
             for env in range(agent.storage.num_envs):
                 # Flatten batches as they contain infos for each env
-                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :])
+                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :].permute(
+                    0, 2, 1, 3))
                 acts_list.append(agent.storage.act_batch.numpy()[:, env])
                 # I don't bother to save the actual infos because I don't need them, and
                 # they are formatted weirdly.
