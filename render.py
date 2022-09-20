@@ -48,9 +48,7 @@ if __name__=='__main__':
     parser.add_argument('--value_saliency', action='store_true')
 
     # Saving trajectories (compatible with HumanCompatibleAI/imitation)
-    parser.add_argument('--traj_path', type=Optional[str], default=None)
-
-
+    parser.add_argument('--traj_path', type=str, default=None)
 
     parser.add_argument('--random_percent',   type=float, default=0., help='percent of environments in which coin is randomized (only for coinrun)')
     parser.add_argument('--corruption_type',  type=str, default = None)
