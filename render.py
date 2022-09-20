@@ -332,7 +332,7 @@ if __name__=='__main__':
             save_value_estimates(agent.storage, epoch_idx)
 
         if args.traj_path is not None:
-            for env in agent.storage.num_envs:
+            for env in range(agent.storage.num_envs):
                 # Flatten batches as they contain infos for each env
                 obs_list.append(agent.storage.obs_batch.numpy()[:, env, :])
                 acts_list.append(agent.storage.act_batch.numpy()[:, env])
