@@ -334,9 +334,8 @@ if __name__=='__main__':
         if args.traj_path is not None:
             # Flatten batches as they contain infos for each env
             for env in range(agent.storage.num_envs):
-                print(agent.storage.obs_batch.numpy()[:, env, :].shape)
-                print(agent.storage.obs_batch.numpy()[:, env, :].transpose(0, 2, 3, 1).
-                      shape)
+                # Trajectories are channel first here
+                # However imitation expects normal channel last version, so we transpose
                 obs_list.append(agent.storage.obs_batch.numpy()[:, env, :].transpose(
                     0, 2, 3, 1))
 
