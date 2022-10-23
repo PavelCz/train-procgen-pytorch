@@ -353,9 +353,14 @@ if __name__=='__main__':
 
     if args.traj_path is not None:
         # Save trajectories to disk
+        acts_concat = np.concatenate(acts_list)
+        # Actions are saved as floats but are actually integer valued.
+        acts_concat_int = acts_concat.astype(np.int8)
+        if (acts_concat != acts_concat_int).all():
+            raise ValueError("Actions are not integers!")
         condensed = {
             "obs": np.concatenate(obs_list),
-            "acts": np.concatenate(acts_list),
+            "acts": acts_concat_int,
             "infos": np.concatenate(infos_list),
             "terminal": np.array([done_batch[-1] for done_batch in dones_list]),
             "rews": np.concatenate(rew_list),
