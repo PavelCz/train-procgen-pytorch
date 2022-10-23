@@ -19,6 +19,30 @@ import torchvision as tv
 from gym3 import ViewerWrapper, VideoRecorderWrapper, ToBaselinesVecEnv
 
 
+def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list):
+    if args.traj_path is not None:
+        # Save trajectories to disk
+        acts_concat = np.concatenate(acts_list)
+        # Actions are saved as floats but are actually integer valued.
+        acts_concat_int = acts_concat.astype(np.int8)
+        if (acts_concat != acts_concat_int).all():
+            raise ValueError("Actions are not integers!")
+        condensed = {
+            "obs": np.concatenate(obs_list),
+            "acts": acts_concat_int,
+            "infos": np.concatenate(infos_list),
+            "terminal": np.array([done_batch[-1] for done_batch in dones_list]),
+            "rews": np.concatenate(rew_list),
+            "indices": np.cumsum([len(x) for x in dones_list[:-1]]),
+        }
+        tmp_path = args.traj_path + ".tmp"
+        with open(tmp_path, "wb") as f:
+            np.savez_compressed(f, **condensed)
+
+        os.replace(tmp_path, args.traj_path)
+        print(f"Saved trajectories to {args.traj_path} for {len(condensed['obs'])} episodes.")
+
+
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name',         type=str, default = 'render', help='experiment name')
@@ -256,6 +280,8 @@ if __name__=='__main__':
     rew_list = []
     dones_list = []
 
+    save_rollouts_every = 1000
+
     individual_value_idx = 1001
     save_frequency = 1
     saliency_save_idx = 0
@@ -353,24 +379,7 @@ if __name__=='__main__':
         agent.storage.compute_estimates(agent.gamma, agent.lmbda, agent.use_gae,
                                         agent.normalize_adv)
 
-    if args.traj_path is not None:
-        # Save trajectories to disk
-        acts_concat = np.concatenate(acts_list)
-        # Actions are saved as floats but are actually integer valued.
-        acts_concat_int = acts_concat.astype(np.int8)
-        if (acts_concat != acts_concat_int).all():
-            raise ValueError("Actions are not integers!")
-        condensed = {
-            "obs": np.concatenate(obs_list),
-            "acts": acts_concat_int,
-            "infos": np.concatenate(infos_list),
-            "terminal": np.array([done_batch[-1] for done_batch in dones_list]),
-            "rews": np.concatenate(rew_list),
-            "indices": np.cumsum([len(x) for x in dones_list[:-1]]),
-        }
-        tmp_path = args.traj_path + ".tmp"
-        with open(tmp_path, "wb") as f:
-            np.savez_compressed(f, **condensed)
+        if iteration != 0 and iteration % save_rollouts_every == 0:
+            _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list)
 
-        os.replace(tmp_path, args.traj_path)
-        print(f"Saved trajectories to {args.traj_path}.")
+    _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list)
