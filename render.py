@@ -248,6 +248,7 @@ if __name__=='__main__':
     if args.num_episodes % agent.n_envs != 0:
         num_iterations += 1  # We want *at least* num_episodes
 
+    print("Start running collection of episodes.")
     # For saving trajectories / transitions
     obs_list = []
     acts_list = []
@@ -260,6 +261,7 @@ if __name__=='__main__':
     saliency_save_idx = 0
     epoch_idx = 0
     for iteration in range(num_iterations):
+        print(f"Iteraions {iteration+1}/{num_iterations}")
         agent.policy.eval()
         for _ in range(agent.n_steps):  # = 256
             if not args.value_saliency:
