@@ -40,7 +40,7 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
             np.savez_compressed(f, **condensed)
 
         os.replace(tmp_path, args.traj_path)
-        print(f"Saved trajectories to {args.traj_path} for {len(condensed['obs'])} episodes.")
+        print(f"Saved trajectories to {args.traj_path} for {len(condensed['obs'])} timesteps.")
 
 
 if __name__=='__main__':
