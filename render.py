@@ -31,7 +31,7 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
             obs_concat = (obs_concat * 255).astype(np.uint8)
         # Turn dones into int
         dones_concat = np.concatenate(dones_list).astype(np.int8)
-        indices = [i+1 for i, done in enumerate(dones_concat) if done]
+        indices = [i + 1 for i, done in enumerate(dones_concat) if done]
         terminal = [True] * len(indices)
         if len(indices) > 0 and indices[-1] == len(dones_concat):
             # Last trajectory ends exactly at the end of the episode.
@@ -62,27 +62,37 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         )
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp_name',         type=str, default = 'render', help='experiment name')
-    parser.add_argument('--env_name',         type=str, default = 'coinrun', help='environment ID')
-    parser.add_argument('--start_level',      type=int, default = int(0), help='start-level for environment')
-    parser.add_argument('--num_levels',       type=int, default = int(0), help='number of training levels for environment')
-    parser.add_argument('--distribution_mode',type=str, default = 'hard', help='distribution mode for environment')
-    parser.add_argument('--param_name',       type=str, default = 'easy-200', help='hyper-parameter ID')
-    parser.add_argument('--device',           type=str, default = 'cpu', required = False, help='whether to use gpu')
-    parser.add_argument('--gpu_device',       type=int, default = int(0), required = False, help = 'visible device in CUDA')
-    parser.add_argument('--seed',             type=int, default = random.randint(0,9999), help='Random generator seed')
-    parser.add_argument('--log_level',        type=int, default = int(40), help='[10,20,30,40]')
-    parser.add_argument('--num_checkpoints',  type=int, default = int(1), help='number of checkpoints to store')
-    parser.add_argument('--logdir',           type=str, default = None)
-    parser.add_argument('--num_episodes',     type=int, default = int(1000),
+    parser.add_argument('--exp_name', type=str, default='render',
+                        help='experiment name')
+    parser.add_argument('--env_name', type=str, default='coinrun',
+                        help='environment ID')
+    parser.add_argument('--start_level', type=int, default=int(0),
+                        help='start-level for environment')
+    parser.add_argument('--num_levels', type=int, default=int(0),
+                        help='number of training levels for environment')
+    parser.add_argument('--distribution_mode', type=str, default='hard',
+                        help='distribution mode for environment')
+    parser.add_argument('--param_name', type=str, default='easy-200',
+                        help='hyper-parameter ID')
+    parser.add_argument('--device', type=str, default='cpu', required=False,
+                        help='whether to use gpu')
+    parser.add_argument('--gpu_device', type=int, default=int(0), required=False,
+                        help='visible device in CUDA')
+    parser.add_argument('--seed', type=int, default=random.randint(0, 9999),
+                        help='Random generator seed')
+    parser.add_argument('--log_level', type=int, default=int(40), help='[10,20,30,40]')
+    parser.add_argument('--num_checkpoints', type=int, default=int(1),
+                        help='number of checkpoints to store')
+    parser.add_argument('--logdir', type=str, default=None)
+    parser.add_argument('--num_episodes', type=int, default=int(1000),
                         help='number of episodes to render / save')
 
-    #multi threading
+    # multi threading
     parser.add_argument('--num_threads', type=int, default=8)
 
-    #render parameters
+    # render parameters
     parser.add_argument('--tps', type=int, default=15, help="env fps")
     parser.add_argument('--vid_dir', type=str, default=None)
     parser.add_argument('--model_file', type=str)
@@ -93,14 +103,15 @@ if __name__=='__main__':
     # Saving trajectories (compatible with HumanCompatibleAI/imitation)
     parser.add_argument('--traj_path', type=str, default=None)
 
-    parser.add_argument('--random_percent',   type=float, default=0., help='percent of environments in which coin is randomized (only for coinrun)')
-    parser.add_argument('--corruption_type',  type=str, default = None)
-    parser.add_argument('--corruption_severity',  type=str, default = 1)
-    parser.add_argument('--agent_view', action="store_true", help="see what the agent sees")
-    parser.add_argument('--continue_after_coin', action="store_true", help="level doesnt end when agent gets coin")
+    parser.add_argument('--random_percent', type=float, default=0.,
+                        help='percent of environments in which coin is randomized (only for coinrun)')
+    parser.add_argument('--corruption_type', type=str, default=None)
+    parser.add_argument('--corruption_severity', type=str, default=1)
+    parser.add_argument('--agent_view', action="store_true",
+                        help="see what the agent sees")
+    parser.add_argument('--continue_after_coin', action="store_true",
+                        help="level doesnt end when agent gets coin")
     parser.add_argument('--noview', action="store_true", help="just take vids")
-
-
 
     args = parser.parse_args()
     exp_name = args.exp_name
@@ -142,23 +153,25 @@ if __name__=='__main__':
     print('INITIALIZAING ENVIRONMENTS...')
     n_envs = 1
 
+
     def create_venv_render(args, hyperparameters, is_valid=False):
         venv = ProcgenGym3Env(num=n_envs,
-                          env_name=args.env_name,
-                          num_levels=0 if is_valid else args.num_levels,
-                          start_level=0 if is_valid else args.start_level,
-                          distribution_mode=args.distribution_mode,
-                          num_threads=1,
-                          render_mode="rgb_array",
-                          random_percent=args.random_percent,
-                          corruption_type=args.corruption_type,
-                          corruption_severity=int(args.corruption_severity),
-                          continue_after_coin=args.continue_after_coin,
-                          )
+                              env_name=args.env_name,
+                              num_levels=0 if is_valid else args.num_levels,
+                              start_level=0 if is_valid else args.start_level,
+                              distribution_mode=args.distribution_mode,
+                              num_threads=1,
+                              render_mode="rgb_array",
+                              random_percent=args.random_percent,
+                              corruption_type=args.corruption_type,
+                              corruption_severity=int(args.corruption_severity),
+                              continue_after_coin=args.continue_after_coin,
+                              )
         info_key = None if args.agent_view else "rgb"
         ob_key = "rgb" if args.agent_view else None
         if not args.noview:
-            venv = ViewerWrapper(venv, tps=args.tps, info_key=info_key, ob_key=ob_key) # N.B. this line caused issues for me. I just commented it out, but it's uncommented in the pushed version in case it's just me (Lee).
+            venv = ViewerWrapper(venv, tps=args.tps, info_key=info_key,
+                                 ob_key=ob_key)  # N.B. this line caused issues for me. I just commented it out, but it's uncommented in the pushed version in case it's just me (Lee).
         if args.vid_dir is not None:
             venv = VideoRecorderWrapper(venv, directory=args.vid_dir,
                                         info_key=info_key, ob_key=ob_key, fps=args.tps)
@@ -166,16 +179,18 @@ if __name__=='__main__':
         venv = VecExtractDictObs(venv, "rgb")
         normalize_rew = hyperparameters.get('normalize_rew', True)
         if normalize_rew:
-            venv = VecNormalize(venv, ob=False) # normalizing returns, but not
-            #the img frames
+            venv = VecNormalize(venv, ob=False)  # normalizing returns, but not
+            # the img frames
         venv = TransposeFrame(venv)
         venv = ScaledFloatFrame(venv)
 
         return venv
+
+
     n_steps = hyperparameters.get('n_steps', 256)
 
-    #env = create_venv(args, hyperparameters)
-    #env_valid = create_venv(args, hyperparameters, is_valid=True)
+    # env = create_venv(args, hyperparameters)
+    # env_valid = create_venv(args, hyperparameters, is_valid=True)
     env = create_venv_render(args, hyperparameters, is_valid=True)
 
     ############
@@ -230,7 +245,7 @@ if __name__=='__main__':
     print('INITIALIZAING STORAGE...')
     hidden_state_dim = model.output_dim
     storage = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, device)
-    #storage_valid = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, device)
+    # storage_valid = Storage(observation_shape, hidden_state_dim, n_steps, n_envs, device)
 
     ###########
     ## AGENT ##
@@ -241,10 +256,13 @@ if __name__=='__main__':
         from agents.ppo import PPO as AGENT
     else:
         raise NotImplementedError
-    agent = AGENT(env, policy, logger, storage, device, num_checkpoints, **hyperparameters)
+    agent = AGENT(env, policy, logger, storage, device, num_checkpoints,
+                  **hyperparameters)
 
-    agent.policy.load_state_dict(torch.load(args.model_file, map_location=device)["model_state_dict"])
+    agent.policy.load_state_dict(
+        torch.load(args.model_file, map_location=device)["model_state_dict"])
     agent.n_envs = n_envs
+
 
     ############
     ## RENDER ##
@@ -258,11 +276,12 @@ if __name__=='__main__':
         np.save(logdir + f"/value_{epoch_idx}", storage.value_batch)
         return
 
+
     def save_value_estimates_individual(storage, epoch_idx, individual_value_idx):
         """write individual observations and value estimates to npy / csv file"""
         print(f"Saving random samples of observations and values to {logdir}")
         obs = storage.obs_batch.clone().detach().squeeze().permute(0, 2, 3, 1)
-        obs = (obs * 255 ).cpu().numpy().astype(np.uint8)
+        obs = (obs * 255).cpu().numpy().astype(np.uint8)
         vals = storage.value_batch.squeeze()
 
         random_idxs = np.random.choice(obs.shape[0], 5, replace=False)
@@ -274,6 +293,7 @@ if __name__=='__main__':
             np.save(logdir_indiv_value + f"/val_{individual_value_idx:05d}.npy", val)
             individual_value_idx += 1
         return individual_value_idx
+
 
     def write_scalar(scalar, filename):
         """write scalar to filename"""
@@ -309,15 +329,17 @@ if __name__=='__main__':
     saliency_save_idx = 0
     epoch_idx = 0
     for iteration in range(num_iterations):
-        print(f"Iterations {iteration+1}/{num_iterations}")
+        print(f"Iterations {iteration + 1}/{num_iterations}")
         agent.policy.eval()
         for _ in range(agent.n_steps):  # = 256
             if not args.value_saliency:
-                act, log_prob_act, value, next_hidden_state = agent.predict(obs, hidden_state, done)
+                act, log_prob_act, value, next_hidden_state = agent.predict(obs,
+                                                                            hidden_state,
+                                                                            done)
             else:
-                act, log_prob_act, value, next_hidden_state, value_saliency_obs = agent.predict_w_value_saliency(obs, hidden_state, done)
+                act, log_prob_act, value, next_hidden_state, value_saliency_obs = agent.predict_w_value_saliency(
+                    obs, hidden_state, done)
                 if saliency_save_idx % save_frequency == 0:
-
                     value_saliency_obs = value_saliency_obs.swapaxes(1, 3)
                     obs_copy = obs.swapaxes(1, 3)
 
@@ -335,7 +357,6 @@ if __name__=='__main__':
                                                torch.zeros_like(ims_grad))
                     neg_grads = ims_grad.where(ims_grad < 0.,
                                                torch.zeros_like(ims_grad)).abs()
-
 
                     # Make a couple of copies of the original im for later
                     sample_ims_faint = torch.tensor(obs_copy.mean(-1)) * 0.2
@@ -355,20 +376,21 @@ if __name__=='__main__':
 
                     grad_vid = grad_vid + sample_ims_faint
 
-                    grad_vid = Image.fromarray(grad_vid.swapaxes(0,2).squeeze())
-                    grad_vid.save(logdir_saliency_value + f"/sal_obs_{saliency_save_idx:05d}_grad.png")
+                    grad_vid = Image.fromarray(grad_vid.swapaxes(0, 2).squeeze())
+                    grad_vid.save(
+                        logdir_saliency_value + f"/sal_obs_{saliency_save_idx:05d}_grad.png")
 
                     obs_copy = (obs_copy * 255).astype(np.uint8)
-                    obs_copy = Image.fromarray(obs_copy.swapaxes(0,2).squeeze())
-                    obs_copy.save(logdir_saliency_value + f"/sal_obs_{saliency_save_idx:05d}_raw.png")
+                    obs_copy = Image.fromarray(obs_copy.swapaxes(0, 2).squeeze())
+                    obs_copy.save(
+                        logdir_saliency_value + f"/sal_obs_{saliency_save_idx:05d}_raw.png")
 
                 saliency_save_idx += 1
 
-
-
             next_obs, rew, done, info = agent.env.step(act)
 
-            agent.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act, value)
+            agent.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act,
+                                value)
             obs = next_obs
             hidden_state = next_hidden_state
 
@@ -376,7 +398,9 @@ if __name__=='__main__':
         agent.storage.store_last(obs, hidden_state, last_val)
 
         if args.save_value_individual:
-            individual_value_idx = save_value_estimates_individual(agent.storage, epoch_idx, individual_value_idx)
+            individual_value_idx = save_value_estimates_individual(agent.storage,
+                                                                   epoch_idx,
+                                                                   individual_value_idx)
 
         if args.save_value:
             save_value_estimates(agent.storage, epoch_idx)
@@ -402,6 +426,7 @@ if __name__=='__main__':
                                         agent.normalize_adv)
 
         if iteration != 0 and iteration % save_rollouts_every == 0:
-            _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list)
+            _save_trajectories(args, obs_list, acts_list, infos_list, dones_list,
+                               rew_list)
 
     _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list)
