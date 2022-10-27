@@ -1,22 +1,22 @@
-from typing import Optional
+import argparse
+import os
+import random
+import time
+import yaml
 
+import gym
+import torch
+import torchvision as tv
+from PIL import Image
+from gym3 import ViewerWrapper, VideoRecorderWrapper, ToBaselinesVecEnv
+from procgen import ProcgenGym3Env
+
+from common import set_global_seeds, set_global_log_levels
 from common.env.procgen_wrappers import *
 from common.logger import Logger
-from common.storage import Storage
 from common.model import NatureModel, ImpalaModel
 from common.policy import CategoricalPolicy
-from common import set_global_seeds, set_global_log_levels
-
-import os, time, yaml, argparse
-import gym
-from procgen import ProcgenGym3Env
-import random
-import torch
-
-from PIL import Image
-import torchvision as tv
-
-from gym3 import ViewerWrapper, VideoRecorderWrapper, ToBaselinesVecEnv
+from common.storage import Storage
 
 
 def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list):
@@ -26,14 +26,30 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         # Actions are saved as floats but are actually integer valued.
         acts_concat_int = acts_concat.astype(np.int8)
         if (acts_concat != acts_concat_int).all():
-            raise ValueError("Actions are not integers!")
+            raise ValueError("Actions are not integer valued!")
+        # Turn observations into int8 of range [0, 255]
+        obs_concat = np.concatenate(obs_list)
+        if obs_concat.dtype == np.float32:
+            if obs_concat.min() < 0 or obs_concat.max() > 1:
+                raise ValueError("Float observations are not in [0, 1]!")
+            obs_concat = (obs_concat * 255).astype(np.uint8)
+        # Turn dones into int
+        dones_concat = np.concatenate(dones_list).astype(np.int8)
+        indices = [i+1 for i, done in enumerate(dones_concat) if done]
+        terminal = [True] * len(indices)
+        if indices[-1] == len(dones_concat):
+            # Last trajectory ends exactly at the end of the episode.
+            indices = indices[:-1]
+        else:
+            # Last trajectory is not finished.
+            terminal.append(False)
         condensed = {
-            "obs": np.concatenate(obs_list),
+            "obs": obs_concat,
             "acts": acts_concat_int,
             "infos": np.concatenate(infos_list),
-            "terminal": np.array([done_batch[-1] for done_batch in dones_list]),
+            "terminal": np.array(terminal),
             "rews": np.concatenate(rew_list),
-            "indices": np.cumsum([len(x) for x in dones_list[:-1]]),
+            "indices": np.array(indices),
         }
         tmp_path = args.traj_path + ".tmp"
         with open(tmp_path, "wb") as f:
