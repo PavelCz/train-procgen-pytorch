@@ -1,12 +1,8 @@
 import argparse
-import os
 import random
-import time
-import yaml
 
-import gym
-import torch
 import torchvision as tv
+import yaml
 from PIL import Image
 from gym3 import ViewerWrapper, VideoRecorderWrapper, ToBaselinesVecEnv
 from procgen import ProcgenGym3Env
@@ -37,7 +33,7 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         dones_concat = np.concatenate(dones_list).astype(np.int8)
         indices = [i+1 for i, done in enumerate(dones_concat) if done]
         terminal = [True] * len(indices)
-        if indices[-1] == len(dones_concat):
+        if len(indices) > 0 and indices[-1] == len(dones_concat):
             # Last trajectory ends exactly at the end of the episode.
             indices = indices[:-1]
         else:
@@ -51,12 +47,19 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
             "rews": np.concatenate(rew_list),
             "indices": np.array(indices),
         }
-        tmp_path = args.traj_path + ".tmp"
+        total_timesteps = len(acts_concat_int)
+        save_path = args.traj_path
+        split = save_path.split(".")
+        split[-2] += f"_{total_timesteps / 1000:.1f}k"
+        save_path = ".".join(split)
+        tmp_path = save_path + ".tmp"
         with open(tmp_path, "wb") as f:
             np.savez_compressed(f, **condensed)
 
-        os.replace(tmp_path, args.traj_path)
-        print(f"Saved trajectories to {args.traj_path} for {len(condensed['obs'])} timesteps.")
+        os.replace(tmp_path, save_path)
+        print(
+            f"Saved trajectories to {save_path} for {total_timesteps} timesteps."
+        )
 
 
 if __name__=='__main__':
@@ -296,7 +299,10 @@ if __name__=='__main__':
     rew_list = []
     dones_list = []
 
-    save_rollouts_every = 1000
+    save_rollouts_every = num_iterations // 10
+    if num_iterations % 10 != 0:
+        # If it doesn't add up exactly save rollouts less frequently
+        save_rollouts_every += 1
 
     individual_value_idx = 1001
     save_frequency = 1
