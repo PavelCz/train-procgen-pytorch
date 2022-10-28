@@ -405,7 +405,7 @@ if __name__ == '__main__':
             for env in range(agent.storage.num_envs):
                 # Trajectories are channel first here
                 # However imitation expects channel last version, so we transpose
-                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].obs_batch(0, 2,
+                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].transpose(0, 2,
                                                                                  3, 1)
                 # Turn observations into int8 of range [0, 255]
                 if obs_batch.dtype == np.float32:
