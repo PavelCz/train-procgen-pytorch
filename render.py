@@ -23,7 +23,16 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         acts_concat_int = acts_concat.astype(np.int8)
         if (acts_concat != acts_concat_int).all():
             raise ValueError("Actions are not integer valued!")
-        obs_concat = np.concatenate(obs_list)
+        # obs_list is a list of batches of observations.
+        # Each of these batches has 1 more element than the number of actions because
+        # the last one is the last next_obs. That means the last observations of every
+        # batch is the first of the next batch. In order to not duplicate these
+        # observations, for every batch except the last one (obs_list[-1]) we remove
+        # the last observation (obs[:-1]). We create a list of these observations
+        # ([obs[:-1] for obs in obs_list[:-1]]) and then concatenate them with the
+        # last batch, which is not reduced (+ [obs_list[-1]]).
+        obs_concat = np.concatenate(
+            [obs[:-1] for obs in obs_list[:-1]] + [obs_list[-1]])
         # Turn dones into int
         dones_concat = np.concatenate(dones_list).astype(np.int8)
         indices = [i + 1 for i, done in enumerate(dones_concat) if done]
