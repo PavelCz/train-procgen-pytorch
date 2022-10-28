@@ -23,12 +23,7 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         acts_concat_int = acts_concat.astype(np.int8)
         if (acts_concat != acts_concat_int).all():
             raise ValueError("Actions are not integer valued!")
-        # Turn observations into int8 of range [0, 255]
         obs_concat = np.concatenate(obs_list)
-        if obs_concat.dtype == np.float32:
-            if obs_concat.min() < 0 or obs_concat.max() > 1:
-                raise ValueError("Float observations are not in [0, 1]!")
-            obs_concat = (obs_concat * 255).astype(np.uint8)
         # Turn dones into int
         dones_concat = np.concatenate(dones_list).astype(np.int8)
         indices = [i + 1 for i, done in enumerate(dones_concat) if done]
@@ -409,9 +404,15 @@ if __name__ == '__main__':
             # Flatten batches as they contain infos for each env
             for env in range(agent.storage.num_envs):
                 # Trajectories are channel first here
-                # However imitation expects normal channel last version, so we transpose
-                obs_list.append(agent.storage.obs_batch.numpy()[:, env, :].transpose(
-                    0, 2, 3, 1))
+                # However imitation expects channel last version, so we transpose
+                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].obs_batch(0, 2,
+                                                                                 3, 1)
+                # Turn observations into int8 of range [0, 255]
+                if obs_batch.dtype == np.float32:
+                    if obs_batch.min() < 0 or obs_batch.max() > 1:
+                        raise ValueError("Float observations are not in [0, 1]!")
+                    obs_batch = (obs_batch * 255).astype(np.uint8)
+                obs_list.append(obs_batch)
 
                 acts_list.append(agent.storage.act_batch.numpy()[:, env])
                 # I don't bother to save the actual infos because I don't need them, and
