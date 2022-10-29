@@ -1,6 +1,7 @@
 import argparse
 import random
 
+import numpy as np
 import torchvision as tv
 import yaml
 from PIL import Image
@@ -23,6 +24,16 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         acts_concat_int = acts_concat.astype(np.int8)
         if (acts_concat != acts_concat_int).all():
             raise ValueError("Actions are not integer valued!")
+
+        # Turn dones into int
+        dones_concat = np.concatenate(dones_list).astype(np.int8)
+        # Indices where each terminal trajectory ends. The index is one higher than the
+        # index of the last obs of the trajectory and therefore the same as the index
+        # of the last next_obs of the trajectory.
+        end_indices = [i + 1 for i, done in enumerate(dones_concat) if done]
+        # Sanity check the problem mentioned in the next comment.
+        assert all([(obs_list[i][-1] == obs_list[i + 1][0]).all() for i in
+                    range(len(obs_list) - 1)])
         # obs_list is a list of batches of observations.
         # Each of these batches has 1 more element than the number of actions because
         # the last one is the last next_obs. That means the last observations of every
@@ -30,28 +41,71 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         # observations, for every batch except the last one (obs_list[-1]) we remove
         # the last observation (obs[:-1]). We create a list of these observations
         # ([obs[:-1] for obs in obs_list[:-1]]) and then concatenate them with the
-        # last batch, which is not reduced (+ [obs_list[-1]]).
+        # last batch, which is not reduced (+ [obs_list[-1]]).W
         obs_concat = np.concatenate(
             [obs[:-1] for obs in obs_list[:-1]] + [obs_list[-1]])
-        # Turn dones into int
-        dones_concat = np.concatenate(dones_list).astype(np.int8)
-        indices = [i + 1 for i, done in enumerate(dones_concat) if done]
-        terminal = [True] * len(indices)
-        if len(indices) > 0 and indices[-1] == len(dones_concat):
-            # Last trajectory ends exactly at the end of the episode.
-            indices = indices[:-1]
+        # Now we have one long list of all observations without duplicates. However,
+        # the loading in imitation expects trajectories in the sense that the last
+        # observation will always be duplicated with the first obs of the next traj.
+        # Keep in mind that the duplicates we removed above were from *batches*, which
+        # don't automatically coincide with *trajectories*.
+        # Here we turn these observations into a list of trajectories.
+        # The indices of the dones indicate where the trajectories end.
+        trajectories = []
+        for i in range(len(end_indices)):
+            if i == 0:
+                start = 0
+            else:
+                start = end_indices[i - 1]
+            end = end_indices[i]
+            # We add + 1 because we want to include the last next_obs of the trajectory.
+            traj = obs_concat[start:end + 1]
+            trajectories.append(traj)
+        # This might not include the last trajectory if it is not terminal.
+        # This will be fixed below together with some other problems that arise in that
+        # case.
+
+        # For every done we have at least one terminal trajectory.
+        terminal = [True] * len(end_indices)
+        if len(end_indices) > 0 and dones_concat[-1]:
+            # If the last trajectory is terminal, i.e. the exact last done is True,
+            # we don't need its index for splitting.
+            indices = end_indices[:-1]
+            # Because it's done index used to be in the list, its observations are
+            # already in 'trajectories'.
         else:
-            # Last trajectory is not finished.
+            # If the last trajectory is not terminal, we need an additional boolean,
+            # since there is one more trajectory than the number of dones / the number
+            # of indices in 'end_indices'.
             terminal.append(False)
+            # Furthermore, we haven't added this last trajectory yet.
+            trajectories.append(obs_concat[end_indices[-1]:])
+            # We don't need to change anything here, there is never an index marking
+            # the end of the last trajectory.
+            indices = end_indices
+        # Now that we have a list of trajectories, we can create the array of
+        # observations as expected by the imitation code.
+        trajectory_obs = np.concatenate(trajectories)
+        # We also sanity check that we arrive at the same indices by calculating them
+        # this way, which is what imitation does when saving.
+        assert (np.cumsum([len(traj) - 1 for traj in trajectories[:-1]]) == np.array(
+            indices)).all()
+        # Interesting thing to note is that imitation will expect indices to not line
+        # up with the actual indices of the observations because it will then
+        # automatically compensate for this fact.
+        # This is due to the last next_obs being duplicated in the list of observations.
+        # For acts etc. this is not the case.
         condensed = {
-            "obs": obs_concat,
+            "obs": trajectory_obs,
             "acts": acts_concat_int,
             "infos": np.concatenate(infos_list),
             "terminal": np.array(terminal),
             "rews": np.concatenate(rew_list),
             "indices": np.array(indices),
         }
+
         total_timesteps = len(acts_concat_int)
+        # This just adjusts the file name to include the number of timesteps (in 1000s).
         save_path = args.traj_path
         split = save_path.split(".")
         split[-2] += f"_{total_timesteps / 1000:.1f}k"
