@@ -1,7 +1,6 @@
 import argparse
 import random
 
-import numpy as np
 import torchvision as tv
 import yaml
 from PIL import Image
