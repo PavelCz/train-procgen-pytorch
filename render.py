@@ -8,6 +8,7 @@ from PIL import Image
 from gym3 import ViewerWrapper, VideoRecorderWrapper, ToBaselinesVecEnv
 from procgen import ProcgenGym3Env
 
+from agents.ppo import PPO
 from common import set_global_seeds, set_global_log_levels
 from common.env.procgen_wrappers import *
 from common.logger import Logger
@@ -311,11 +312,10 @@ if __name__ == '__main__':
     print('INTIALIZING AGENT...')
     algo = hyperparameters.get('algo', 'ppo')
     if algo == 'ppo':
-        from agents.ppo import PPO as AGENT
+        agent = PPO(env, policy, logger, storage, device, num_checkpoints,
+                    **hyperparameters)
     else:
         raise NotImplementedError
-    agent = AGENT(env, policy, logger, storage, device, num_checkpoints,
-                  **hyperparameters)
 
     agent.policy.load_state_dict(
         torch.load(args.model_file, map_location=device)["model_state_dict"])
