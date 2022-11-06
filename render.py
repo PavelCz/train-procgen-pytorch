@@ -474,14 +474,14 @@ if __name__ == '__main__':
                     if obs_batch.min() < 0 or obs_batch.max() > 1:
                         raise ValueError("Float observations are not in [0, 1]!")
                     obs_batch = (obs_batch * 255).astype(np.uint8)
-                obs_list.append(obs_batch)
+                obs_list.append(obs_batch.copy())
 
-                acts_list.append(agent.storage.act_batch.numpy()[:, env])
+                acts_list.append(agent.storage.act_batch.numpy()[:, env].copy())
                 # I don't bother to save the actual infos because I don't need them, and
                 # they are formatted weirdly.
-                infos_list.append(np.full(len(agent.storage.act_batch), {}))
-                rew_list.append(agent.storage.rew_batch.numpy()[:, env])
-                dones_list.append(agent.storage.done_batch.numpy()[:, env])
+                infos_list.append(np.full(len(agent.storage.act_batch), {}).copy())
+                rew_list.append(agent.storage.rew_batch.numpy()[:, env].copy())
+                dones_list.append(agent.storage.done_batch.numpy()[:, env].copy())
 
         epoch_idx += 1
 
