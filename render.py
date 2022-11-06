@@ -476,6 +476,7 @@ if __name__ == '__main__':
                     obs_batch = (obs_batch * 255).astype(np.uint8)
                 obs_list.append(obs_batch.copy())
 
+                # We copy because original tensors will be reused by the agent.
                 acts_list.append(agent.storage.act_batch.numpy()[:, env].copy())
                 # I don't bother to save the actual infos because I don't need them, and
                 # they are formatted weirdly.
