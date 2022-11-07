@@ -22,7 +22,7 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
         acts_concat = np.concatenate(acts_list)
         # Actions are saved as floats but are actually integer valued.
         acts_concat_int = acts_concat.astype(np.int8)
-        if (acts_concat != acts_concat_int).all():
+        if (acts_concat != acts_concat_int).any():
             raise ValueError("Actions are not integer valued!")
 
         # Turn dones into int
