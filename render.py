@@ -16,7 +16,17 @@ from common.policy import CategoricalPolicy
 from common.storage import Storage
 
 
-def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list):
+def to_int8(obs_arr):
+    """Converts observations to int8 of range [0, 255], if they aren't already."""
+    if obs_arr.dtype == np.float32:
+        if obs_arr.min() < 0 or obs_arr.max() > 1:
+            raise ValueError("Float observations are not in [0, 1]!")
+        obs_arr = (obs_arr * 255).astype(np.uint8)
+    return obs_arr
+
+
+def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
+                       rew_list):
     if args.traj_path is not None:
         # Save trajectories to disk
         acts_concat = np.concatenate(acts_list)
@@ -27,76 +37,48 @@ def _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_li
 
         # Turn dones into int
         dones_concat = np.concatenate(dones_list).astype(np.int8)
-        # Indices where each terminal trajectory ends. The index is one higher than the
-        # index of the last obs of the trajectory and therefore the same as the index
-        # of the last next_obs of the trajectory.
-        end_indices = [i + 1 for i, done in enumerate(dones_concat) if done]
-        # Sanity check the problem mentioned in the next comment.
-        assert all([(obs_list[i][-1] == obs_list[i + 1][0]).all() for i in
-                    range(len(obs_list) - 1)])
-        # obs_list is a list of batches of observations.
-        # Each of these batches has 1 more element than the number of actions because
-        # the last one is the last next_obs. That means the last observations of every
-        # batch is the first of the next batch. In order to not duplicate these
-        # observations, for every batch except the last one (obs_list[-1]) we remove
-        # the last observation (obs[:-1]). We create a list of these observations
-        # ([obs[:-1] for obs in obs_list[:-1]]) and then concatenate them with the
-        # last batch, which is not reduced (+ [obs_list[-1]]).W
-        obs_concat = np.concatenate(
-            [obs[:-1] for obs in obs_list[:-1]] + [obs_list[-1]])
-        # Now we have one long list of all observations without duplicates. However,
-        # the loading in imitation expects trajectories in the sense that the last
-        # observation will always be duplicated with the first obs of the next traj.
-        # Keep in mind that the duplicates we removed above were from *batches*, which
-        # don't automatically coincide with *trajectories*.
-        # Here we turn these observations into a list of trajectories.
-        # The indices of the dones indicate where the trajectories end.
-        trajectories = []
-        for i in range(len(end_indices)):
-            if i == 0:
-                start = 0
-            else:
-                start = end_indices[i - 1]
-            end = end_indices[i]
-            # We add + 1 because we want to include the last next_obs of the trajectory.
-            traj = obs_concat[start:end + 1]
-            trajectories.append(traj)
-        # This might not include the last trajectory if it is not terminal.
-        # This will be fixed below together with some other problems that arise in that
-        # case.
 
-        # For every done we have at least one terminal trajectory.
-        terminal = [True] * len(end_indices)
-        if len(end_indices) > 0 and dones_concat[-1]:
-            # If the last trajectory is terminal, i.e. the exact last done is True,
-            # we don't need its index for splitting.
-            indices = end_indices[:-1]
-            # Because it's done index used to be in the list, its observations are
-            # already in 'trajectories'.
+        # Calculate indices as expected by imitation.
+        # The length of a trajectory is the number of transitions, which is the number
+        # of observations minus 1, because the last observation is always the final obs
+        # of an episode, which is not a transition.
+        # The las trajectory may or may not be terminal, either way we don't need it
+        # for the last index. (The last index splits the second to last from the last
+        # trajectory.)
+        indices = np.cumsum([len(traj) - 1 for traj in obs_traj_list[:-1]])
+
+        # Observations are simply all the observations concatenated.
+        obs_concat = np.concatenate(obs_traj_list)
+
+        num_terminal_trajs = np.sum(dones_list)
+        # For every done we have one terminal trajectory.
+        terminal = [True] * len(num_terminal_trajs)
+        if dones_concat[-1]:
+            # The last trajectory is terminal if the last done is True.
+            # That means we have only terminal trajectories, so we don't need to change
+            # the terminal list.
+            pass
         else:
-            # If the last trajectory is not terminal, we need an additional boolean,
-            # since there is one more trajectory than the number of dones / the number
-            # of indices in 'end_indices'.
+            # The last trajectory is not terminal.
+            # We need to add a False to the end of the terminal list.
             terminal.append(False)
-            # Furthermore, we haven't added this last trajectory yet.
-            trajectories.append(obs_concat[end_indices[-1]:])
-            # We don't need to change anything here, there is never an index marking
-            # the end of the last trajectory.
-            indices = end_indices
-        # Now that we have a list of trajectories, we can create the array of
-        # observations as expected by the imitation code.
-        trajectory_obs = np.concatenate(trajectories)
-        # We also sanity check that we arrive at the same indices by calculating them
-        # this way, which is what imitation does when saving.
-        assert (np.cumsum([len(traj) - 1 for traj in trajectories[:-1]]) == np.array(
-            indices)).all()
+
+        # Sanity check that the number of trajectories agrees.
+        assert len(terminal) == len(obs_traj_list)
+
+        # Sanity check that the number of transitions is correct.
+        # For every terminal trajectory, there is one more observation than transition,
+        # and number of transitions is the number of actions.
+        assert len(obs_concat) == len(acts_concat) + num_terminal_trajs
+
         # Interesting thing to note is that imitation will expect indices to not line
         # up with the actual indices of the observations because it will then
         # automatically compensate for this fact.
-        # This is due to the last next_obs being duplicated in the list of observations.
-        # For acts etc. this is not the case.
+        # This is due to the last next_obs being part of the obs list, hoever indices
+        # are based on the length of the trajectories, which doesn't include the last
+        # obs.
         condensed = {
-            "obs": trajectory_obs,
+            "obs": obs_concat,
             "acts": acts_concat_int,
             "infos": np.concatenate(infos_list),
             "terminal": np.array(terminal),
@@ -370,7 +352,8 @@ if __name__ == '__main__':
 
     print("Start running collection of episodes.")
     # For saving trajectories / transitions
-    obs_list = []
+    obs_traj_list = [[]]
+    current_traj = 0
     acts_list = []
     infos_list = []
     rew_list = []
@@ -385,10 +368,17 @@ if __name__ == '__main__':
     save_frequency = 1
     saliency_save_idx = 0
     epoch_idx = 0
+    total_steps = 0
     for iteration in range(num_iterations):
         print(f"Iterations {iteration + 1}/{num_iterations}")
         agent.policy.eval()
         for _ in range(agent.n_steps):  # = 256
+            if args.traj_path is not None:
+                # Before anything we save the obs (if we are saving trajectories).
+                obs_copy = obs.copy()
+                obs_copy = to_int8(obs_copy)
+                obs_traj_list[current_traj].append(obs_copy)
+
             if not args.value_saliency:
                 act, log_prob_act, value, next_hidden_state = agent.predict(obs,
                                                                             hidden_state,
@@ -445,6 +435,23 @@ if __name__ == '__main__':
                 saliency_save_idx += 1
 
             next_obs, rew, done, info = agent.env.step(act)
+            total_steps += 1
+
+            if done:
+                # In gym3 when the end of the episode is reached the env is immediately
+                # reset. That is why next_obs is already the first observation of the
+                # next episode.
+                # However, in our modifications to procgen the finals observation of the
+                # previous episode is saved in the info dict. We access this here and
+                # append it to the list of observation trajectories
+                final_obs = info[0]["final_obs"].copy()
+                final_obs = to_int8(final_obs)
+                obs_traj_list[current_traj].append(final_obs)
+                # Now the trajectory is done, so we start a new one.
+                current_traj += 1
+                obs_traj_list.append([])
+                # The first observation will be added to this new trajectory at the
+                # beginning of the next iteration of this for loop.
 
             agent.storage.store(obs, hidden_state, act, rew, done, info, log_prob_act,
                                 value)
@@ -467,14 +474,9 @@ if __name__ == '__main__':
             for env in range(agent.storage.num_envs):
                 # Trajectories are channel first here
                 # However imitation expects channel last version, so we transpose
-                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].transpose(0, 2,
-                                                                                 3, 1)
-                # Turn observations into int8 of range [0, 255]
-                if obs_batch.dtype == np.float32:
-                    if obs_batch.min() < 0 or obs_batch.max() > 1:
-                        raise ValueError("Float observations are not in [0, 1]!")
-                    obs_batch = (obs_batch * 255).astype(np.uint8)
-                obs_list.append(obs_batch.copy())
+                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].transpose(
+                    0, 2, 3, 1
+                )
 
                 # We copy because original tensors will be reused by the agent.
                 acts_list.append(agent.storage.act_batch.numpy()[:, env].copy())
@@ -490,7 +492,7 @@ if __name__ == '__main__':
                                         agent.normalize_adv)
 
         if iteration != 0 and iteration % save_rollouts_every == 0:
-            _save_trajectories(args, obs_list, acts_list, infos_list, dones_list,
+            _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
                                rew_list)
 
-    _save_trajectories(args, obs_list, acts_list, infos_list, dones_list, rew_list)
+    _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list)
