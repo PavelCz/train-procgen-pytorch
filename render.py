@@ -26,7 +26,13 @@ def to_int8(obs_arr):
 
 
 def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
-                       rew_list):
+                       rew_list, final_obs):
+    """Saves trajectories to disk. Add final_obs, which is the very last observation,
+    i.e. the very last next_obs, that the agent has not seen yet, however it is
+    necessary for the reward nets. We can't directly add this to the obs_traj_list,
+    because then it would be duplicated, if this is not actually the last time we save
+    trajectories, since at this same observation will be added to the list at the
+    start of the next iteration."""
     if args.traj_path is not None:
         # Save trajectories to disk
         acts_concat = np.concatenate(acts_list)
@@ -48,7 +54,8 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         indices = np.cumsum([len(traj) - 1 for traj in obs_traj_list[:-1]])
 
         # Observations are simply all the observations concatenated.
-        obs_concat = np.concatenate(obs_traj_list)
+        # We also add the final next_obs.
+        obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
 
         num_terminal_trajs = np.sum(dones_concat)
         # For every done we have one terminal trajectory.
@@ -67,9 +74,10 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         assert len(terminal) == len(obs_traj_list)
 
         # Sanity check that the number of transitions is correct.
-        # For every terminal trajectory, there is one more observation than transition,
-        # and number of transitions is the number of actions.
-        assert len(obs_concat) == len(acts_concat) + num_terminal_trajs
+        # For every trajectory, there is one more observation than transition, because
+        # there is always a next_obs, even if the trajectory is not terminal.
+        # The number of transitions is simply the number of actions.
+        assert len(obs_concat) == len(acts_concat) + len(obs_traj_list)
 
         # Interesting thing to note is that imitation will expect indices to not line
         # up with the actual indices of the observations because it will then
@@ -494,7 +502,17 @@ if __name__ == '__main__':
                                         agent.normalize_adv)
 
         if iteration != 0 and iteration % save_rollouts_every == 0:
+            # The last next_obs has not been added to the obs_traj_list yet, so we
+            # add it here. We can't add it to the list directly, because then it would
+            # be added to the list twice.
+            # At this point in the code the final next_obs is also obs, so we just use
+            # that because then Python doesn't complain that it might not be defined
+            # yet.
+            final_obs_of_iteration = obs[0].copy()
+            final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
             _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
-                               rew_list)
-
-    _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list)
+                               rew_list, final_obs_of_iteration)
+    # See above for explanation.
+    final_obs_of_iteration = obs[0].copy()
+    final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
+    _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list, final_obs_of_iteration)
