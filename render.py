@@ -50,9 +50,9 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         # Observations are simply all the observations concatenated.
         obs_concat = np.concatenate(obs_traj_list)
 
-        num_terminal_trajs = np.sum(dones_list)
+        num_terminal_trajs = np.sum(dones_concat)
         # For every done we have one terminal trajectory.
-        terminal = [True] * len(num_terminal_trajs)
+        terminal = [True] * num_terminal_trajs
         if dones_concat[-1]:
             # The last trajectory is terminal if the last done is True.
             # That means we have only terminal trajectories, so we don't need to change
@@ -375,8 +375,8 @@ if __name__ == '__main__':
         for _ in range(agent.n_steps):  # = 256
             if args.traj_path is not None:
                 # Before anything we save the obs (if we are saving trajectories).
-                obs_copy = obs.copy()
-                obs_copy = to_int8(obs_copy)
+                obs_copy = obs[0].copy()
+                obs_copy = to_int8(obs_copy).transpose(1, 2, 0)
                 obs_traj_list[current_traj].append(obs_copy)
 
             if not args.value_saliency:
@@ -445,6 +445,8 @@ if __name__ == '__main__':
                 # previous episode is saved in the info dict. We access this here and
                 # append it to the list of observation trajectories
                 final_obs = info[0]["final_obs"].copy()
+                # Unlike normal obs, these obs are already in teh format where the last
+                # dim is for channels, so we don't need to transpose here.
                 final_obs = to_int8(final_obs)
                 obs_traj_list[current_traj].append(final_obs)
                 # Now the trajectory is done, so we start a new one.
