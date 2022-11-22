@@ -456,6 +456,8 @@ if __name__ == '__main__':
                 # Unlike normal obs, these obs are already in teh format where the last
                 # dim is for channels, so we don't need to transpose here.
                 final_obs = to_int8(final_obs)
+                # For some reason final obs are inverted.
+                final_obs = 255 - final_obs
                 obs_traj_list[current_traj].append(final_obs)
                 # Now the trajectory is done, so we start a new one.
                 current_traj += 1
@@ -482,11 +484,6 @@ if __name__ == '__main__':
         if args.traj_path is not None:
             # Flatten batches as they contain infos for each env
             for env in range(agent.storage.num_envs):
-                # Trajectories are channel first here
-                # However imitation expects channel last version, so we transpose
-                obs_batch = agent.storage.obs_batch.numpy()[:, env, :].transpose(
-                    0, 2, 3, 1
-                )
 
                 # We copy because original tensors will be reused by the agent.
                 acts_list.append(agent.storage.act_batch.numpy()[:, env].copy())
