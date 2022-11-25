@@ -48,9 +48,9 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         # The length of a trajectory is the number of transitions, which is the number
         # of observations minus 1, because the last observation is always the final obs
         # of an episode, which is not a transition.
-        # The las trajectory may or may not be terminal, either way we don't need it
+        # The last trajectory may or may not be terminal, either way we don't need it
         # for the last index. (The last index splits the second to last from the last
-        # trajectory.)
+        # trajectory, so the length of the last trajectory is irrelevant.)
         indices = np.cumsum([len(traj) - 1 for traj in obs_traj_list[:-1]])
 
         # Observations are simply all the observations concatenated.
@@ -453,11 +453,17 @@ if __name__ == '__main__':
                 # previous episode is saved in the info dict. We access this here and
                 # append it to the list of observation trajectories
                 final_obs = info[0]["final_obs"].copy()
+                # print("FROM PYTHON")
+                # print()
+                # for i in final_obs.flatten():
+                #     print(i)
+                #
+                # print("END PYTHON")
                 # Unlike normal obs, these obs are already in teh format where the last
                 # dim is for channels, so we don't need to transpose here.
                 final_obs = to_int8(final_obs)
                 # For some reason final obs are inverted.
-                final_obs = 255 - final_obs
+                final_obs = (256 - final_obs) % 256
                 obs_traj_list[current_traj].append(final_obs)
                 # Now the trajectory is done, so we start a new one.
                 current_traj += 1
