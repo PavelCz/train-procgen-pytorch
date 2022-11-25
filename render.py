@@ -57,6 +57,10 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         # We also add the final next_obs.
         obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
 
+        assert obs_concat.dtype == np.uint8, "Observations are not uint8!"
+        assert np.min(obs_concat) >= 0 and np.max(
+            obs_concat) <= 255, "Observations are not in [0, 255]!"
+
         num_terminal_trajs = np.sum(dones_concat)
         # For every done we have one terminal trajectory.
         terminal = [True] * num_terminal_trajs
@@ -482,7 +486,6 @@ if __name__ == '__main__':
         if args.traj_path is not None:
             # Flatten batches as they contain infos for each env
             for env in range(agent.storage.num_envs):
-
                 # We copy because original tensors will be reused by the agent.
                 acts_list.append(agent.storage.act_batch.numpy()[:, env].copy())
                 # I don't bother to save the actual infos because I don't need them, and
@@ -510,4 +513,5 @@ if __name__ == '__main__':
     # See above for explanation.
     final_obs_of_iteration = obs[0].copy()
     final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
-    _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list, final_obs_of_iteration)
+    _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list,
+                       final_obs_of_iteration)
