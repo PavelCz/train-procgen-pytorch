@@ -18,7 +18,7 @@ from common.storage import Storage
 
 def to_int8(obs_arr):
     """Converts observations to int8 of range [0, 255], if they aren't already."""
-    if obs_arr.dtype == np.float32:
+    if obs_arr.dtype == float:
         if obs_arr.min() < 0 or obs_arr.max() > 1:
             raise ValueError("Float observations are not in [0, 1]!")
         obs_arr = (obs_arr * 255).astype(np.uint8)
@@ -453,17 +453,9 @@ if __name__ == '__main__':
                 # previous episode is saved in the info dict. We access this here and
                 # append it to the list of observation trajectories
                 final_obs = info[0]["final_obs"].copy()
-                # print("FROM PYTHON")
-                # print()
-                # for i in final_obs.flatten():
-                #     print(i)
-                #
-                # print("END PYTHON")
                 # Unlike normal obs, these obs are already in teh format where the last
                 # dim is for channels, so we don't need to transpose here.
                 final_obs = to_int8(final_obs)
-                # For some reason final obs are inverted.
-                final_obs = (256 - final_obs) % 256
                 obs_traj_list[current_traj].append(final_obs)
                 # Now the trajectory is done, so we start a new one.
                 current_traj += 1
