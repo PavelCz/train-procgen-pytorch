@@ -62,6 +62,8 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
             else:
                 obs_concat = np.concatenate(obs_traj_list)
         except ValueError as ve:
+            # This is to handle an exception. I haven't been able to reproduce it, but
+            # in case it occurs again, these additional infos will help.
             print("ValueError when concatenating observations:")
             print(f"obs_traj_list shape: {np.shape(obs_traj_list)}")
             print(f"final_obs shape: {np.shape(final_obs)}")
