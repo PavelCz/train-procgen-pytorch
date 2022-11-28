@@ -53,9 +53,16 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
         # trajectory, so the length of the last trajectory is irrelevant.)
         indices = np.cumsum([len(traj) - 1 for traj in obs_traj_list[:-1]])
 
-        # Observations are simply all the observations concatenated.
-        # We also add the final next_obs.
-        obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
+        try:
+            # Observations are simply all the observations concatenated.
+            # We also add the final next_obs.
+            obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
+        except ValueError as ve:
+            print("ValueError when concatenating observations:")
+            print(f"obs_traj_list shape: {np.shape(obs_traj_list)}")
+            print(f"final_obs shape: {np.shape(final_obs)}")
+            print(f"final_obs: {final_obs}")
+            raise ValueError(ve)
 
         assert obs_concat.dtype == np.uint8, "Observations are not uint8!"
         assert np.min(obs_concat) >= 0 and np.max(
