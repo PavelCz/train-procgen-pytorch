@@ -1,5 +1,6 @@
 import argparse
 import random
+from typing import Optional
 
 import torchvision as tv
 import yaml
@@ -26,7 +27,7 @@ def to_int8(obs_arr):
 
 
 def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
-                       rew_list, final_obs):
+                       rew_list, final_obs: Optional[np.ndarray] = None):
     """Saves trajectories to disk. Add final_obs, which is the very last observation,
     i.e. the very last next_obs, that the agent has not seen yet, however it is
     necessary for the reward nets. We can't directly add this to the obs_traj_list,
@@ -55,8 +56,11 @@ def _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
 
         try:
             # Observations are simply all the observations concatenated.
-            # We also add the final next_obs.
-            obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
+            # We also add the final next_obs, if it is provided.
+            if final_obs is not None:
+                obs_concat = np.concatenate(obs_traj_list + [[final_obs]])
+            else:
+                obs_concat = np.concatenate(obs_traj_list)
         except ValueError as ve:
             print("ValueError when concatenating observations:")
             print(f"obs_traj_list shape: {np.shape(obs_traj_list)}")
@@ -399,12 +403,17 @@ if __name__ == '__main__':
                 obs_traj_list[current_traj].append(obs_copy)
 
             if not args.value_saliency:
-                act, log_prob_act, value, next_hidden_state = agent.predict(obs,
-                                                                            hidden_state,
-                                                                            done)
+                act, log_prob_act, value, next_hidden_state = agent.predict(
+                    obs, hidden_state, done
+                )
             else:
-                act, log_prob_act, value, next_hidden_state, value_saliency_obs = agent.predict_w_value_saliency(
-                    obs, hidden_state, done)
+                (
+                    act,
+                    log_prob_act,
+                    value,
+                    next_hidden_state,
+                    value_saliency_obs
+                ) = agent.predict_w_value_saliency(obs, hidden_state, done)
                 if saliency_save_idx % save_frequency == 0:
                     value_saliency_obs = value_saliency_obs.swapaxes(1, 3)
                     obs_copy = obs.swapaxes(1, 3)
@@ -513,12 +522,23 @@ if __name__ == '__main__':
             # At this point in the code the final next_obs is also obs, so we just use
             # that because then Python doesn't complain that it might not be defined
             # yet.
-            final_obs_of_iteration = obs[0].copy()
-            final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
+            if not done:
+                final_obs_of_iteration = obs[0].copy()
+                final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(
+                    1, 2, 0
+                )
+            else:
+                # However, if this last transition happens to coincide with the end of
+                # the episode, then the final next_obs should actually be the final obs
+                # of the previous episode, which was already added to the obs_traj_list.
+                final_obs_of_iteration = None
             _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list,
                                rew_list, final_obs_of_iteration)
-    # See above for explanation.
-    final_obs_of_iteration = obs[0].copy()
-    final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
+    if not done:
+        # See above for explanation.
+        final_obs_of_iteration = obs[0].copy()
+        final_obs_of_iteration = to_int8(final_obs_of_iteration).transpose(1, 2, 0)
+    else:
+        final_obs_of_iteration = None
     _save_trajectories(args, obs_traj_list, acts_list, infos_list, dones_list, rew_list,
                        final_obs_of_iteration)
